@@ -28,6 +28,24 @@ func TestRunExplainsRequiredBase(t *testing.T) {
 	}
 }
 
+func TestCLIRequiresBaseAndAcceptsBothWatchArgumentOrders(t *testing.T) {
+	for _, args := range [][]string{{"main", "--watch"}, {"--watch", "main"}} {
+		base, watch, err := parseCLI(args)
+		if err != nil || base != "main" || !watch {
+			t.Fatalf("watch arguments %q: base=%q watch=%t err=%v", args, base, watch, err)
+		}
+	}
+	base, watch, err := parseCLI([]string{"HEAD~3"})
+	if err != nil || base != "HEAD~3" || watch {
+		t.Fatalf("snapshot arguments: base=%q watch=%t err=%v", base, watch, err)
+	}
+	for _, args := range [][]string{nil, {"main", "unexpected"}, {"--watch"}, {"main", "--unknown"}} {
+		if _, _, err := parseCLI(args); err == nil {
+			t.Errorf("invalid arguments %q accepted", args)
+		}
+	}
+}
+
 func TestInspectRendersAnEmptyComparison(t *testing.T) {
 	dir := repo(t)
 	put(t, dir, "readme.txt", "unchanged\n")

@@ -2,13 +2,9 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"embed"
-	"encoding/base64"
 	"errors"
-	"flag"
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"os/exec"
@@ -36,27 +32,28 @@ type SplitRow struct {
 	Left, Right *Line
 }
 type File struct {
-	ID, Path, OldPath, Status string
-	Binary                    bool
-	Additions, Deletions      int
-	Hunks                     []Hunk
-	Split                     []SplitRow
+	ID, Path, OldPath, Status   string
+	Binary                      bool
+	Staged, Unstaged, Untracked bool
+	Additions, Deletions        int
+	Hunks                       []Hunk
+	Split                       []SplitRow
 }
 type NavFile struct {
-	ID, Path, Name, Status string
+	ID, Path, Name, Status      string
+	Staged, Unstaged, Untracked bool
 }
 type NavGroup struct {
 	Directory string
 	Files     []NavFile
 }
 type View struct {
+	ID                                      string
 	Repository, Root, Base, Head, MergeBase string
 	Files                                   []File
 	NavGroups                               []NavGroup
 	Additions, Deletions                    int
-	CSS                                     template.CSS
-	JS                                      template.JS
-	CSP                                     string
+	patchBytes                              int
 }
 
 const maxGitOutput = 32 << 20
@@ -74,6 +71,10 @@ func (b *limitBuffer) Write(p []byte) (int, error) {
 }
 
 func git(dir string, args ...string) ([]byte, error) {
+	return gitWithAllowedExit(dir, false, args...)
+}
+
+func gitWithAllowedExit(dir string, allowDifference bool, args ...string) ([]byte, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_PAGER=cat")
@@ -81,6 +82,10 @@ func git(dir string, args ...string) ([]byte, error) {
 	var stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = stdout, &stderr
 	if err := cmd.Run(); err != nil {
+		var exit *exec.ExitError
+		if allowDifference && errors.As(err, &exit) && exit.ExitCode() == 1 && stderr.Len() == 0 {
+			return stdout.Bytes(), nil
+		}
 		if stderr.Len() > 0 {
 			return nil, fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
 		}
@@ -118,30 +123,11 @@ func inspect(dir, base string) (View, error) {
 		}
 	}
 	v.Head = strings.TrimSpace(string(head))
-	names, err := git(v.Root, "diff", "--no-ext-diff", "--no-textconv", "--find-renames", "--name-status", "-z", v.MergeBase, "HEAD", "--")
+	diff, _, err := inspectDiff(v.Root, v.MergeBase, "HEAD", "file")
 	if err != nil {
 		return v, err
 	}
-	v.Files, err = parseNames(names)
-	if err != nil {
-		return v, err
-	}
-	patch, err := git(v.Root, "diff", "--no-ext-diff", "--no-textconv", "--no-color", "--find-renames", "--patch", "--src-prefix=a/", "--dst-prefix=b/", v.MergeBase, "HEAD", "--")
-	if err != nil {
-		return v, err
-	}
-	sections := splitPatch(string(patch))
-	if len(sections) != len(v.Files) {
-		return v, fmt.Errorf("diff metadata/patch mismatch: %d files, %d patches", len(v.Files), len(sections))
-	}
-	for i := range v.Files {
-		v.Files[i].ID = fmt.Sprintf("file-%d", i+1)
-		parsePatch(&v.Files[i], sections[i])
-		v.Files[i].Split = splitRows(v.Files[i].Hunks)
-		v.Additions += v.Files[i].Additions
-		v.Deletions += v.Files[i].Deletions
-	}
-	v.NavGroups = groupNavigation(v.Files)
+	v.ID, v.Files, v.NavGroups, v.Additions, v.Deletions, v.patchBytes = diff.ID, diff.Files, diff.NavGroups, diff.Additions, diff.Deletions, diff.patchBytes
 	return v, nil
 }
 
@@ -159,7 +145,7 @@ func groupNavigation(files []File) []NavGroup {
 			positions[directory] = index
 			groups = append(groups, NavGroup{Directory: directory})
 		}
-		groups[index].Files = append(groups[index].Files, NavFile{ID: file.ID, Path: file.Path, Name: path.Base(file.Path), Status: file.Status})
+		groups[index].Files = append(groups[index].Files, NavFile{ID: file.ID, Path: file.Path, Name: path.Base(file.Path), Status: file.Status, Staged: file.Staged, Unstaged: file.Unstaged, Untracked: file.Untracked})
 	}
 	return groups
 }
@@ -315,40 +301,23 @@ func splitRows(hunks []Hunk) []SplitRow {
 	return rows
 }
 
-func render(v View) ([]byte, error) {
-	htmlBytes, err := assets.ReadFile("viewer.html")
-	if err != nil {
-		return nil, err
-	}
-	css, err := assets.ReadFile("viewer.css")
-	if err != nil {
-		return nil, err
-	}
-	js, err := assets.ReadFile("viewer.js")
-	if err != nil {
-		return nil, err
-	}
-	cssHash := sha256.Sum256(css)
-	jsHash := sha256.Sum256(js)
-	v.CSP = fmt.Sprintf("default-src 'none'; style-src 'sha256-%s'; script-src 'sha256-%s'; img-src data:; base-uri 'none'; form-action 'none'", base64.StdEncoding.EncodeToString(cssHash[:]), base64.StdEncoding.EncodeToString(jsHash[:]))
-	v.CSS = template.CSS(css)
-	v.JS = template.JS(js)
-	tmpl, err := template.New("viewer").Parse(string(htmlBytes))
-	if err != nil {
-		return nil, err
-	}
-	var out bytes.Buffer
-	if err := tmpl.Execute(&out, v); err != nil {
-		return nil, err
-	}
-	return out.Bytes(), nil
-}
-
 func writePreview(v View) (string, error) {
 	page, err := render(v)
 	if err != nil {
 		return "", err
 	}
+	return writeHTML(page)
+}
+
+func writeAppPreview(app App) (string, error) {
+	page, err := renderApp(app)
+	if err != nil {
+		return "", err
+	}
+	return writeHTML(page)
+}
+
+func writeHTML(page []byte) (string, error) {
 	dir := filepath.Join(os.TempDir(), "act-as-pr")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", err
@@ -392,31 +361,50 @@ func openBrowser(path string) error {
 }
 
 func run(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("act-as-pr", flag.ContinueOnError)
-	fs.SetOutput(out)
-	if err := fs.Parse(args); err != nil {
+	base, watch, err := parseCLI(args)
+	if err != nil {
 		return err
-	}
-	if fs.NArg() != 1 {
-		return errors.New("usage: act-as-pr <base> (example: act-as-pr main)")
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	v, err := inspect(cwd, fs.Arg(0))
+	if watch {
+		return runWatch(cwd, base, out)
+	}
+	app, err := inspectApp(cwd, base)
 	if err != nil {
 		return err
 	}
-	path, err := writePreview(v)
+	path, err := writeAppPreview(app)
 	if err != nil {
 		return err
 	}
 	if err := openBrowser(path); err != nil {
 		return fmt.Errorf("preview saved at %s; %w", path, err)
 	}
-	fmt.Fprintf(out, "Opened %s (%d changed files)\n", path, len(v.Files))
+	fmt.Fprintf(out, "Opened %s (%d changed files)\n", path, len(app.FilesChanged.Files))
 	return nil
+}
+
+func parseCLI(args []string) (string, bool, error) {
+	usage := errors.New("usage: act-as-pr <base> [--watch] (example: act-as-pr main --watch)")
+	var base string
+	var watch bool
+	for _, arg := range args {
+		switch {
+		case arg == "--watch" && !watch:
+			watch = true
+		case arg == "" || strings.HasPrefix(arg, "-") || base != "":
+			return "", false, usage
+		default:
+			base = arg
+		}
+	}
+	if base == "" {
+		return "", false, usage
+	}
+	return base, watch, nil
 }
 
 func main() {

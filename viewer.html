@@ -1,58 +1,93 @@
+{{define "diffView"}}
+<div class="diff-summary"><strong>{{len .Files}}</strong> changed files <span class="divider">·</span> <span class="add-count">+{{.Additions}}</span> <span class="delete-count">−{{.Deletions}}</span></div>
+<div class="workspace">
+  <aside class="sidebar" aria-label="Changed files">
+    <div class="sidebar-heading"><span>Changed files</span><span class="sidebar-count">{{len .Files}}</span></div>
+    {{if eq .ID "files"}}<nav id="file-nav">{{else}}<nav id="{{.ID}}-nav">{{end}}
+      {{range .NavGroups}}<section class="nav-group" aria-label="{{if .Directory}}{{.Directory}}{{else}}Repository root{{end}}">
+        <div class="nav-group-heading"><span class="folder-mark" aria-hidden="true"></span><span>{{if .Directory}}{{.Directory}}{{else}}Repository root{{end}}</span></div>
+        {{range .Files}}<a href="#{{.ID}}" class="nav-file" title="{{.Path}}"><span class="nav-status {{.Status}}" aria-hidden="true">{{if eq .Status "added"}}+{{else if eq .Status "deleted"}}−{{else if eq .Status "renamed"}}↝{{else}}●{{end}}</span><span class="nav-path">{{.Name}}</span>{{if .Staged}}<span class="nav-working staged" aria-label="Staged" title="Staged">S</span>{{end}}{{if .Unstaged}}<span class="nav-working unstaged" aria-label="Unstaged" title="Unstaged">U</span>{{end}}{{if .Untracked}}<span class="nav-working untracked" aria-label="Untracked" title="Untracked">?</span>{{end}}</a>{{end}}
+      </section>{{end}}
+    </nav>
+  </aside>
+  <div class="file-list">
+    {{if not .Files}}<div class="empty">No changes in this comparison.</div>{{end}}
+    {{range .Files}}
+    <details class="file-card" id="{{.ID}}" data-file-key="{{$.ID}}:{{.Path}}" open>
+      <summary class="file-header"><span class="file-toggle" aria-hidden="true">▾</span><span class="file-icon" aria-hidden="true">▤</span><span class="file-path">{{.Path}}</span>{{if .OldPath}}<span class="old-path">from {{.OldPath}}</span>{{end}}<span class="file-status {{.Status}}">{{.Status}}</span>{{if .Staged}}<span class="working-state staged">Staged</span>{{end}}{{if .Unstaged}}<span class="working-state unstaged">Unstaged</span>{{end}}{{if .Untracked}}<span class="working-state untracked">Untracked</span>{{end}}<span class="file-stats"><span class="add-count">+{{.Additions}}</span><span class="delete-count">−{{.Deletions}}</span></span></summary>
+      {{if .Binary}}<div class="binary-notice">Binary file changed · Content preview unavailable</div>{{else if not .Hunks}}<div class="binary-notice">File metadata changed · No text lines to display</div>{{end}}
+      <div class="diff-scroll unified-view"><table class="diff-table" aria-label="Unified diff for {{.Path}}"><tbody>
+        {{range .Hunks}}<tr class="hunk-row"><td class="hunk-gutter" colspan="2" aria-hidden="true">···</td><td class="hunk-text">{{.Header}}</td></tr>{{range .Lines}}<tr class="diff-line {{.Kind}}"><td class="line-number">{{if .Old}}{{.Old}}{{end}}</td><td class="line-number">{{if .New}}{{.New}}{{end}}</td><td class="code-cell"><span class="line-sign">{{if eq .Kind "add"}}+{{else if eq .Kind "delete"}}−{{else}} {{end}}</span><span class="code-text">{{.Text}}</span></td></tr>{{end}}{{end}}
+      </tbody></table></div>
+      <div class="diff-scroll split-view"><table class="diff-table split-table" aria-label="Split diff for {{.Path}}"><tbody>
+        {{range .Split}}{{if .Header}}<tr class="hunk-row"><td class="hunk-gutter" aria-hidden="true">···</td><td class="hunk-text" colspan="3">{{.Header}}</td></tr>{{else}}<tr class="split-line"><td class="line-number {{if .Left}}{{.Left.Kind}}{{end}}">{{if .Left}}{{if .Left.Old}}{{.Left.Old}}{{end}}{{end}}</td><td class="code-cell split-cell {{if .Left}}{{.Left.Kind}}{{else}}void{{end}}"><span class="code-text">{{if .Left}}{{.Left.Text}}{{end}}</span></td><td class="line-number {{if .Right}}{{.Right.Kind}}{{end}}">{{if .Right}}{{if .Right.New}}{{.Right.New}}{{end}}{{end}}</td><td class="code-cell split-cell {{if .Right}}{{.Right.Kind}}{{else}}void{{end}}"><span class="code-text">{{if .Right}}{{.Right.Text}}{{end}}</span></td></tr>{{end}}{{end}}
+      </tbody></table></div>
+    </details>
+    {{end}}
+  </div>
+</div>
+{{end}}
 <!doctype html>
-<html lang="en" data-mode="unified">
+<html lang="en" data-mode="unified" {{if .WatchEvents}}data-watch-events="{{.WatchEvents}}" data-version="{{.Version}}"{{end}}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="{{.CSP}}">
-  <title>{{.Repository}} · Files changed · act-as-pr</title>
+  <title>{{.Repository}} · Local pull request · act-as-pr</title>
   <style>{{.CSS}}</style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">◆</span><span>act<span class="brand-light"> / </span>as<span class="brand-light"> / </span>pr</span></div>
-    <span class="topbar-note">LOCAL DIFF PREVIEW <span aria-hidden="true">·</span> READ ONLY</span>
+    <span class="topbar-note">LOCAL PR PREVIEW <span aria-hidden="true">·</span> READ ONLY</span>
   </header>
   <div class="shell">
     <section class="intro">
-      <h1><span class="repo-title">{{.Repository}}</span> <span class="title-slash">/</span> Files changed</h1>
+      <h1><span class="repo-title">{{.Repository}}</span> <span class="title-slash">/</span> Local pull request</h1>
       <div class="branchline" aria-label="Comparison">
         <span class="comparison-pill">base: <strong>{{.Base}}</strong></span>
         <span class="branch-arrow" aria-hidden="true">←</span>
         <span class="comparison-pill">compare: <strong>{{.Head}}</strong></span>
-        <span class="merge-note">Diff from merge base <code>{{.MergeBase}}</code> to HEAD</span>
+        <span class="merge-note">Committed range starts at <code>{{.MergeBase}}</code></span>
       </div>
     </section>
-    <div class="toolbar">
-      <div class="totals"><strong>{{len .Files}}</strong> changed files <span class="divider">·</span> <span class="add-count">+{{.Additions}}</span> <span class="delete-count">−{{.Deletions}}</span></div>
+    <div class="view-toolbar">
+      <div class="view-tabs" role="tablist" aria-label="Pull request views">
+        <button type="button" role="tab" data-tab="files" aria-selected="true" class="view-tab active">Files changed <span class="tab-count">{{len .FilesChanged.Files}}</span></button>
+        <button type="button" role="tab" data-tab="commits" aria-selected="false" class="view-tab">Commits <span class="tab-count">{{len .Commits}}</span></button>
+        <button type="button" role="tab" data-tab="all" aria-selected="false" class="view-tab">All changes <span class="tab-count">{{len .AllChanges.Files}}</span></button>
+      </div>
       <div class="mode-switch" role="group" aria-label="Diff display mode"><button class="mode-button active" type="button" data-set-mode="unified" aria-pressed="true">Unified</button><button class="mode-button" type="button" data-set-mode="split" aria-pressed="false">Split</button></div>
     </div>
-    <div class="workspace">
-      <aside class="sidebar" aria-label="Changed files">
-        <div class="sidebar-heading"><span>Changed files</span><span class="sidebar-count">{{len .Files}}</span></div>
-        <nav id="file-nav">
-          {{range .NavGroups}}<section class="nav-group" aria-label="{{if .Directory}}{{.Directory}}{{else}}Repository root{{end}}">
-            <div class="nav-group-heading"><span class="folder-mark" aria-hidden="true"></span><span>{{if .Directory}}{{.Directory}}{{else}}Repository root{{end}}</span></div>
-            {{range .Files}}<a href="#{{.ID}}" class="nav-file" title="{{.Path}}"><span class="nav-status {{.Status}}" aria-hidden="true">{{if eq .Status "added"}}+{{else if eq .Status "deleted"}}−{{else if eq .Status "renamed"}}↝{{else}}●{{end}}</span><span class="nav-path">{{.Name}}</span></a>{{end}}
-          </section>{{end}}
-        </nav>
-      </aside>
-      <main class="file-list">
-        {{if not .Files}}<div class="empty">No changes between the merge base and HEAD.</div>{{end}}
-        {{range .Files}}
-        <details class="file-card" id="{{.ID}}" open>
-          <summary class="file-header"><span class="file-toggle" aria-hidden="true">▾</span><span class="file-icon" aria-hidden="true">▤</span><span class="file-path">{{.Path}}</span>{{if .OldPath}}<span class="old-path">from {{.OldPath}}</span>{{end}}<span class="file-status {{.Status}}">{{.Status}}</span><span class="file-stats"><span class="add-count">+{{.Additions}}</span><span class="delete-count">−{{.Deletions}}</span></span></summary>
-          {{if .Binary}}<div class="binary-notice">Binary file changed · Content preview unavailable</div>{{else if not .Hunks}}<div class="binary-notice">File metadata changed · No text lines to display</div>{{end}}
-          <div class="diff-scroll unified-view"><table class="diff-table" aria-label="Unified diff for {{.Path}}"><tbody>
-            {{range .Hunks}}<tr class="hunk-row"><td class="hunk-gutter" colspan="2" aria-hidden="true">···</td><td class="hunk-text">{{.Header}}</td></tr>{{range .Lines}}<tr class="diff-line {{.Kind}}"><td class="line-number">{{if .Old}}{{.Old}}{{end}}</td><td class="line-number">{{if .New}}{{.New}}{{end}}</td><td class="code-cell"><span class="line-sign">{{if eq .Kind "add"}}+{{else if eq .Kind "delete"}}−{{else}} {{end}}</span><span class="code-text">{{.Text}}</span></td></tr>{{end}}{{end}}
-          </tbody></table></div>
-          <div class="diff-scroll split-view"><table class="diff-table split-table" aria-label="Split diff for {{.Path}}"><tbody>
-            {{range .Split}}{{if .Header}}<tr class="hunk-row"><td class="hunk-gutter" aria-hidden="true">···</td><td class="hunk-text" colspan="3">{{.Header}}</td></tr>{{else}}<tr class="split-line"><td class="line-number {{if .Left}}{{.Left.Kind}}{{end}}">{{if .Left}}{{if .Left.Old}}{{.Left.Old}}{{end}}{{end}}</td><td class="code-cell split-cell {{if .Left}}{{.Left.Kind}}{{else}}void{{end}}"><span class="code-text">{{if .Left}}{{.Left.Text}}{{end}}</span></td><td class="line-number {{if .Right}}{{.Right.Kind}}{{end}}">{{if .Right}}{{if .Right.New}}{{.Right.New}}{{end}}{{end}}</td><td class="code-cell split-cell {{if .Right}}{{.Right.Kind}}{{else}}void{{end}}"><span class="code-text">{{if .Right}}{{.Right.Text}}{{end}}</span></td></tr>{{end}}{{end}}
-          </tbody></table></div>
-        </details>
-        {{end}}
-      </main>
-    </div>
-    <footer>Generated locally from Git · No review data, no network</footer>
+    <main>
+      <section class="view-pane" data-view="files">{{template "diffView" .FilesChanged}}</section>
+      <section class="view-pane" data-view="commits" hidden>
+        <div class="commits-list" data-commits-list>
+          <div class="section-intro"><strong>{{len .Commits}} commits</strong> from merge base to HEAD</div>
+          {{if not .Commits}}<div class="empty">No commits in this PR range.</div>{{end}}
+          {{range .Commits}}<button class="commit-item" type="button" data-commit-target="{{.SHA}}"><span class="commit-subject">{{.Subject}}</span><span class="commit-meta">{{.Author}} · {{.Timestamp}}</span><code>{{.ShortSHA}}</code></button>{{end}}
+          {{if .Uncommitted}}<button class="commit-item working-item" type="button" data-commit-target="working"><span class="commit-subject">Uncommitted changes <span class="working-badge">WORKING STATE</span></span><span class="commit-meta">Staged {{.StagedCount}} · Unstaged {{.UnstagedCount}} · Untracked {{.UntrackedCount}}</span><code>HEAD → worktree</code></button>{{end}}
+        </div>
+        {{range .Commits}}<section class="commit-detail" data-commit-detail="{{.SHA}}" hidden>
+          <button class="back-to-commits" type="button" data-back-commits>← All commits</button>
+          <h2>{{.Subject}}</h2>
+          <div class="detail-meta"><code>{{.SHA}}</code><span>{{.Author}} · {{.Timestamp}}</span></div>
+          <div class="comparison-note">{{if .Parent}}First parent <code>{{.Parent}}</code>{{else}}Empty tree (root commit){{end}} → <code>{{.ShortSHA}}</code></div>
+          {{template "diffView" .Diff}}
+        </section>{{end}}
+        {{if .Uncommitted}}<section class="commit-detail" data-commit-detail="working" hidden>
+          <button class="back-to-commits" type="button" data-back-commits>← All commits</button>
+          <h2>Uncommitted changes <span class="working-badge">WORKING STATE</span></h2>
+          <div class="comparison-note"><code>HEAD</code> → current working state · Staged {{.StagedCount}} · Unstaged {{.UnstagedCount}} · Untracked {{.UntrackedCount}}</div>
+          {{template "diffView" .Uncommitted}}
+        </section>{{end}}
+      </section>
+      <section class="view-pane" data-view="all" hidden>
+        <div class="comparison-note all-note">Merge base <code>{{.MergeBase}}</code> → current working state · committed, staged, unstaged, and untracked changes</div>
+        {{template "diffView" .AllChanges}}
+      </section>
+    </main>
+    <footer>Generated locally from Git · No review data, no external network</footer>
   </div>
   <script>{{.JS}}</script>
 </body>
