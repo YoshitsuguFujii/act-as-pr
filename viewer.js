@@ -35,21 +35,50 @@ function setMode(mode) {
   });
 }
 
+function historyView() {
+  return { actAsPR: true, tab: selectedTab, commit: selectedCommit, y: scrollY };
+}
+
+function navigateTo(tab, commit = '') {
+  if (tab !== 'commits') commit = '';
+  if (tab === selectedTab && commit === selectedCommit) return;
+  history.replaceState(historyView(), '', location.href);
+  selectTab(tab);
+  showCommit(commit);
+  history.pushState(historyView(), '', location.href.split('#')[0]);
+  scrollTo({ top: 0, behavior: 'instant' });
+}
+
 document.querySelectorAll('[data-tab]').forEach(button => {
   button.addEventListener('click', () => {
-    if (button.dataset.tab === 'commits') showCommit('');
-    selectTab(button.dataset.tab);
+    navigateTo(button.dataset.tab);
   });
 });
 document.querySelectorAll('[data-commit-target]').forEach(button => {
-  button.addEventListener('click', () => showCommit(button.dataset.commitTarget));
+  button.addEventListener('click', () => navigateTo('commits', button.dataset.commitTarget));
 });
 document.querySelectorAll('[data-back-commits]').forEach(button => {
-  button.addEventListener('click', () => showCommit(''));
+  button.addEventListener('click', () => navigateTo('commits'));
 });
 document.querySelectorAll('[data-set-mode]').forEach(button => {
   button.addEventListener('click', () => setMode(button.dataset.setMode));
 });
+window.addEventListener('popstate', event => {
+  if (!event.state?.actAsPR) return;
+  selectTab(event.state.tab);
+  showCommit(event.state.tab === 'commits' ? event.state.commit : '');
+  if (!location.hash) requestAnimationFrame(() => scrollTo({ top: event.state.y || 0, behavior: 'instant' }));
+});
+
+const backToTop = document.getElementById('back-to-top');
+function updateBackToTop() {
+  backToTop.hidden = scrollY < 400;
+}
+window.addEventListener('scroll', updateBackToTop, { passive: true });
+backToTop.addEventListener('click', () => {
+  scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+});
+updateBackToTop();
 
 // Highlight a small set of common source tokens without interpreting diff text as HTML.
 const sourceFiles = /\.(go|js|ts|jsx|tsx|rb|py|rs|java|c|h|cpp|css|html|json|yml|yaml)$/i;
@@ -80,6 +109,7 @@ document.querySelectorAll('.file-card').forEach(card => {
 
 document.querySelectorAll('nav[id$="-nav"] a').forEach(link => {
   link.addEventListener('click', () => {
+    history.replaceState(historyView(), '', location.href);
     const target = document.getElementById(link.hash.slice(1));
     if (target) target.open = true;
   });
@@ -127,3 +157,4 @@ if (root.dataset.watchEvents) {
     }
   });
 }
+history.replaceState(historyView(), '', location.href);

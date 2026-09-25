@@ -63,6 +63,23 @@ func TestInspectRendersAnEmptyComparison(t *testing.T) {
 	}
 }
 
+func TestPreviewProvidesAnAccessibleBackToTopControl(t *testing.T) {
+	dir := repo(t)
+	put(t, dir, "readme.txt", "base\n")
+	commit(t, dir, "base")
+	view, err := inspect(dir, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := render(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(page), `aria-label="Back to top"`) || !strings.Contains(string(page), `>↑</button>`) {
+		t.Fatal("preview should provide an arrow button with an accessible name")
+	}
+}
+
 func gitTest(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)

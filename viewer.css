@@ -163,6 +163,9 @@ html[data-mode="split"] .split-view { display: block; }
 .comparison-note { margin: 10px 0 2px; }
 .all-note { margin: 14px 0 0; }
 footer { padding: 22px 0 30px; color: var(--muted); font-size: 11px; text-align: center; }
+#back-to-top { position: fixed; right: 24px; bottom: 24px; z-index: 5; width: 42px; height: 42px; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--accent); box-shadow: 0 3px 12px rgba(0,0,0,.16); font-size: 22px; line-height: 1; cursor: pointer; }
+#back-to-top:hover { background: var(--subtle); }
+#back-to-top:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .token-keyword { color: #8250df; font-weight: 600; }
 .token-string { color: #0a7a68; }
 .token-comment { color: #6e7781; }
@@ -185,6 +188,7 @@ footer { padding: 22px 0 30px; color: var(--muted); font-size: 11px; text-align:
   .file-header { flex-wrap: wrap; }
   .old-path { flex-basis: 100%; order: 4; }
   .split-table .code-cell { min-width: 220px; }
+  #back-to-top { right: 16px; bottom: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
