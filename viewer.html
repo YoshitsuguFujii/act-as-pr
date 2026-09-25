@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-mode="unified">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="{{.CSP}}">
+  <title>{{.Repository}} · Files changed · act-as-pr</title>
+  <style>{{.CSS}}</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">◆</span><span>act<span class="brand-light"> / </span>as<span class="brand-light"> / </span>pr</span></div>
+    <span class="topbar-note">LOCAL DIFF PREVIEW <span aria-hidden="true">·</span> READ ONLY</span>
+  </header>
+  <div class="shell">
+    <section class="intro">
+      <h1><span class="repo-title">{{.Repository}}</span> <span class="title-slash">/</span> Files changed</h1>
+      <div class="branchline" aria-label="Comparison">
+        <span class="comparison-pill">base: <strong>{{.Base}}</strong></span>
+        <span class="branch-arrow" aria-hidden="true">←</span>
+        <span class="comparison-pill">compare: <strong>{{.Head}}</strong></span>
+        <span class="merge-note">Diff from merge base <code>{{.MergeBase}}</code> to HEAD</span>
+      </div>
+    </section>
+    <div class="toolbar">
+      <div class="totals"><strong>{{len .Files}}</strong> changed files <span class="divider">·</span> <span class="add-count">+{{.Additions}}</span> <span class="delete-count">−{{.Deletions}}</span></div>
+      <div class="mode-switch" role="group" aria-label="Diff display mode"><button class="mode-button active" type="button" data-set-mode="unified" aria-pressed="true">Unified</button><button class="mode-button" type="button" data-set-mode="split" aria-pressed="false">Split</button></div>
+    </div>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Changed files">
+        <div class="sidebar-heading"><span>Changed files</span><span class="sidebar-count">{{len .Files}}</span></div>
+        <nav id="file-nav">
+          {{range .NavGroups}}<section class="nav-group" aria-label="{{if .Directory}}{{.Directory}}{{else}}Repository root{{end}}">
+            <div class="nav-group-heading"><span class="folder-mark" aria-hidden="true"></span><span>{{if .Directory}}{{.Directory}}{{else}}Repository root{{end}}</span></div>
+            {{range .Files}}<a href="#{{.ID}}" class="nav-file" title="{{.Path}}"><span class="nav-status {{.Status}}" aria-hidden="true">{{if eq .Status "added"}}+{{else if eq .Status "deleted"}}−{{else if eq .Status "renamed"}}↝{{else}}●{{end}}</span><span class="nav-path">{{.Name}}</span></a>{{end}}
+          </section>{{end}}
+        </nav>
+      </aside>
+      <main class="file-list">
+        {{if not .Files}}<div class="empty">No changes between the merge base and HEAD.</div>{{end}}
+        {{range .Files}}
+        <details class="file-card" id="{{.ID}}" open>
+          <summary class="file-header"><span class="file-toggle" aria-hidden="true">▾</span><span class="file-icon" aria-hidden="true">▤</span><span class="file-path">{{.Path}}</span>{{if .OldPath}}<span class="old-path">from {{.OldPath}}</span>{{end}}<span class="file-status {{.Status}}">{{.Status}}</span><span class="file-stats"><span class="add-count">+{{.Additions}}</span><span class="delete-count">−{{.Deletions}}</span></span></summary>
+          {{if .Binary}}<div class="binary-notice">Binary file changed · Content preview unavailable</div>{{else if not .Hunks}}<div class="binary-notice">File metadata changed · No text lines to display</div>{{end}}
+          <div class="diff-scroll unified-view"><table class="diff-table" aria-label="Unified diff for {{.Path}}"><tbody>
+            {{range .Hunks}}<tr class="hunk-row"><td class="hunk-gutter" colspan="2" aria-hidden="true">···</td><td class="hunk-text">{{.Header}}</td></tr>{{range .Lines}}<tr class="diff-line {{.Kind}}"><td class="line-number">{{if .Old}}{{.Old}}{{end}}</td><td class="line-number">{{if .New}}{{.New}}{{end}}</td><td class="code-cell"><span class="line-sign">{{if eq .Kind "add"}}+{{else if eq .Kind "delete"}}−{{else}} {{end}}</span><span class="code-text">{{.Text}}</span></td></tr>{{end}}{{end}}
+          </tbody></table></div>
+          <div class="diff-scroll split-view"><table class="diff-table split-table" aria-label="Split diff for {{.Path}}"><tbody>
+            {{range .Split}}{{if .Header}}<tr class="hunk-row"><td class="hunk-gutter" aria-hidden="true">···</td><td class="hunk-text" colspan="3">{{.Header}}</td></tr>{{else}}<tr class="split-line"><td class="line-number {{if .Left}}{{.Left.Kind}}{{end}}">{{if .Left}}{{if .Left.Old}}{{.Left.Old}}{{end}}{{end}}</td><td class="code-cell split-cell {{if .Left}}{{.Left.Kind}}{{else}}void{{end}}"><span class="code-text">{{if .Left}}{{.Left.Text}}{{end}}</span></td><td class="line-number {{if .Right}}{{.Right.Kind}}{{end}}">{{if .Right}}{{if .Right.New}}{{.Right.New}}{{end}}{{end}}</td><td class="code-cell split-cell {{if .Right}}{{.Right.Kind}}{{else}}void{{end}}"><span class="code-text">{{if .Right}}{{.Right.Text}}{{end}}</span></td></tr>{{end}}{{end}}
+          </tbody></table></div>
+        </details>
+        {{end}}
+      </main>
+    </div>
+    <footer>Generated locally from Git · No review data, no network</footer>
+  </div>
+  <script>{{.JS}}</script>
+</body>
+</html>
