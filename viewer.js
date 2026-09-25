@@ -45,7 +45,7 @@ function navigateTo(tab, commit = '') {
   history.replaceState(historyView(), '', location.href);
   selectTab(tab);
   showCommit(commit);
-  history.pushState(historyView(), '', location.href.split('#')[0]);
+  history.pushState({ ...historyView(), y: 0 }, '', location.href.split('#')[0]);
   scrollTo({ top: 0, behavior: 'instant' });
 }
 
