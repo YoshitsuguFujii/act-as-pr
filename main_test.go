@@ -9,6 +9,17 @@ import (
 	"testing"
 )
 
+func TestModuleIsAvailableAtItsPublicRepositoryPath(t *testing.T) {
+	cmd := exec.Command("go", "list", "-m")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("read module identity: %v: %s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); got != "github.com/YoshitsuguFujii/act-as-pr" {
+		t.Fatalf("public module path: got %q", got)
+	}
+}
+
 func TestRunExplainsRequiredBase(t *testing.T) {
 	var output bytes.Buffer
 	err := run(nil, &output)

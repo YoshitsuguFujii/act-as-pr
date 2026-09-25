@@ -1,18 +1,18 @@
 # act-as-pr
 
-`act-as-pr` renders your local Git changes as if they were a GitHub pull request. It is a read-only preview: it does not create a real PR or send review data anywhere.
+`act-as-pr` renders the committed changes on your current Git branch as if they were a GitHub pull request. It is a read-only preview: it does not create a real PR or send review data anywhere.
 
 ![act-as-pr Files changed preview](docs/images/files-changed.png)
 
 ## Install
 
-Requires Go 1.23 or newer and Git. From this directory:
+Requires Go 1.23 or newer and Git. Install without cloning the repository:
 
 ```sh
-go install .
+go install github.com/YoshitsuguFujii/act-as-pr@latest
 ```
 
-Ensure `$(go env GOPATH)/bin` (or your `GOBIN`) is on `PATH`. To build a standalone binary instead:
+Ensure `$(go env GOPATH)/bin` (or your `GOBIN`) is on `PATH`. From a source checkout, you can also run `go install .` or build a standalone binary:
 
 ```sh
 go build -o act-as-pr .
@@ -35,6 +35,8 @@ The command writes one self-contained HTML file under the OS temporary directory
 ## Safety
 
 Git is invoked with argument arrays for read-only commands. The normal viewer path does not write to the repository, index, refs, remotes, or Git config. Repository paths and diff text are HTML-escaped; the page uses a restrictive Content Security Policy and contains its CSS and JavaScript locally. No authentication, telemetry, GitHub API, or external assets are used.
+
+Generated previews contain the displayed source diff and are stored with user-only permissions (`0600`) in the OS temporary directory.
 
 ## Limits
 
