@@ -170,6 +170,8 @@ func TestWorkingViewsShowUntrackedSymlinksAsAddedLinkTargets(t *testing.T) {
 	for _, tc := range []struct {
 		name, target string
 		prepare      func(t *testing.T) string
+		wantLines    []string
+		wantHeader   string
 	}{
 		{
 			name: "directory link",
@@ -187,6 +189,22 @@ func TestWorkingViewsShowUntrackedSymlinksAsAddedLinkTargets(t *testing.T) {
 			name:   "dangling link",
 			target: "missing.txt",
 		},
+		{
+			name:       "link target with LF",
+			target:     "foo\nbar",
+			wantLines:  []string{"foo", "bar"},
+			wantHeader: "@@ -0,0 +1,2 @@",
+		},
+		{
+			name:      "link target ending with LF",
+			target:    "foo\n",
+			wantLines: []string{"foo"},
+		},
+		{
+			name:      "link target containing only LF",
+			target:    "\n",
+			wantLines: []string{""},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := repo(t)
@@ -195,6 +213,14 @@ func TestWorkingViewsShowUntrackedSymlinksAsAddedLinkTargets(t *testing.T) {
 			target := tc.target
 			if tc.prepare != nil {
 				target = tc.prepare(t)
+			}
+			wantLines := tc.wantLines
+			if wantLines == nil {
+				wantLines = []string{target}
+			}
+			wantHeader := tc.wantHeader
+			if wantHeader == "" {
+				wantHeader = "@@ -0,0 +1 @@"
 			}
 			if err := os.Symlink(target, filepath.Join(dir, "link")); err != nil {
 				t.Fatal(err)
@@ -209,12 +235,16 @@ func TestWorkingViewsShowUntrackedSymlinksAsAddedLinkTargets(t *testing.T) {
 			}
 			for _, view := range []View{*app.Uncommitted, app.AllChanges} {
 				file, ok := fileByPath(view.Files, "link")
-				if !ok || file.Status != "added" || !file.Untracked || file.Additions != 1 || len(file.Hunks) != 1 || len(file.Hunks[0].Lines) != 1 {
-					t.Fatalf("symlink should be one added line: %+v", file)
+				if !ok || file.Status != "added" || !file.Untracked || file.Additions != len(wantLines) || len(file.Hunks) != 1 {
+					t.Fatalf("symlink should appear as added text: %+v", file)
 				}
-				line := file.Hunks[0].Lines[0]
-				if line.Kind != "add" || line.Text != target {
-					t.Fatalf("symlink content should be its target %q: %+v", target, line)
+				if file.Hunks[0].Header != wantHeader || len(file.Hunks[0].Lines) != len(wantLines) {
+					t.Fatalf("symlink line count should match its target: %+v", file.Hunks)
+				}
+				for i, line := range file.Hunks[0].Lines {
+					if line.Kind != "add" || line.Text != wantLines[i] || line.New != i+1 {
+						t.Fatalf("symlink line %d should contain %q: %+v", i+1, wantLines[i], line)
+					}
 				}
 				if len(view.Files) != 1 {
 					t.Fatalf("link target contents should not appear: %+v", view.Files)
