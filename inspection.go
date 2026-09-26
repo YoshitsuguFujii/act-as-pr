@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -324,6 +325,26 @@ func inspectUntracked(root, name string) (File, int, error) {
 	file := File{Path: name, Status: "added"}
 	if !filepath.IsLocal(name) {
 		return file, 0, fmt.Errorf("unsafe untracked path %q", name)
+	}
+	path := filepath.Join(root, name)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return file, 0, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return file, 0, err
+		}
+		// git diff --no-index follows directory symlinks, so render the link target directly.
+		line := Line{Kind: "add", Text: target, New: 1}
+		file.Hunks = []Hunk{{Header: "@@ -0,0 +1 @@", Lines: []Line{line}}}
+		file.Additions = 1
+		file.Split = splitRows(file.Hunks)
+		return file, len(target), nil
+	}
+	if info.IsDir() {
+		return file, 0, nil
 	}
 	patch, err := gitWithAllowedExit(root, true, "diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color", "--patch", "--", "/dev/null", name)
 	if err != nil {
