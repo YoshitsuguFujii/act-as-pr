@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -324,6 +325,34 @@ func inspectUntracked(root, name string) (File, int, error) {
 	file := File{Path: name, Status: "added"}
 	if !filepath.IsLocal(name) {
 		return file, 0, fmt.Errorf("unsafe untracked path %q", name)
+	}
+	path := filepath.Join(root, name)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return file, 0, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return file, 0, err
+		}
+		// git diff --no-index はディレクトリへのリンクを辿って <パス>/null を探し失敗するため、リンク先文字列を直接表示する。
+		texts := strings.Split(strings.TrimSuffix(target, "\n"), "\n")
+		header := "@@ -0,0 +1 @@"
+		if len(texts) > 1 {
+			header = fmt.Sprintf("@@ -0,0 +1,%d @@", len(texts))
+		}
+		hunk := Hunk{Header: header}
+		for i, text := range texts {
+			hunk.Lines = append(hunk.Lines, Line{Kind: "add", Text: text, New: i + 1})
+		}
+		file.Hunks = []Hunk{hunk}
+		file.Additions = len(texts)
+		file.Split = splitRows(file.Hunks)
+		return file, len(target), nil
+	}
+	if info.IsDir() {
+		return file, 0, nil
 	}
 	patch, err := gitWithAllowedExit(root, true, "diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color", "--patch", "--", "/dev/null", name)
 	if err != nil {
