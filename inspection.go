@@ -336,7 +336,7 @@ func inspectUntracked(root, name string) (File, int, error) {
 		if err != nil {
 			return file, 0, err
 		}
-		// git diff --no-index follows directory symlinks, so render the link target directly.
+		// git diff --no-index はディレクトリへのリンクを辿って <パス>/null を探し失敗するため、リンク先文字列を直接表示する。
 		line := Line{Kind: "add", Text: target, New: 1}
 		file.Hunks = []Hunk{{Header: "@@ -0,0 +1 @@", Lines: []Line{line}}}
 		file.Additions = 1
