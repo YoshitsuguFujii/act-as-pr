@@ -63,6 +63,45 @@ document.querySelectorAll('[data-back-commits]').forEach(button => {
 document.querySelectorAll('[data-set-mode]').forEach(button => {
   button.addEventListener('click', () => setMode(button.dataset.setMode));
 });
+document.querySelectorAll('.copy-path').forEach(button => {
+  let resetTimer;
+  button.addEventListener('click', async event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const path = button.dataset.copyPath;
+    let copied = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(path);
+        copied = true;
+      } catch (_) {
+        // Local file previews may not have Clipboard API permission.
+      }
+    }
+    if (!copied) {
+      const field = document.createElement('textarea');
+      field.value = path;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.append(field);
+      field.select();
+      try { copied = document.execCommand('copy'); } catch (_) { /* Clipboard access was denied. */ }
+      field.remove();
+      button.focus();
+    }
+    const message = copied ? 'Copied' : 'Copy failed';
+    button.querySelector('.copy-feedback').textContent = message;
+    button.setAttribute('aria-label', `${message}: ${path}`);
+    button.title = message;
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => {
+      button.querySelector('.copy-feedback').textContent = '';
+      button.setAttribute('aria-label', `Copy path for ${path}`);
+      button.title = 'Copy file path';
+    }, 2000);
+  });
+});
 window.addEventListener('popstate', event => {
   if (!event.state?.actAsPR) return;
   selectTab(event.state.tab);

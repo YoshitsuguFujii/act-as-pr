@@ -80,6 +80,17 @@ func TestPreviewProvidesAnAccessibleBackToTopControl(t *testing.T) {
 	}
 }
 
+func TestPreviewOffersCopyingEachFilePath(t *testing.T) {
+	view := View{Repository: "example", Files: []File{{Path: "src/a & b.go", Status: "modified"}}}
+	page, err := render(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(page), `aria-label="Copy path for src/a &amp; b.go"`); got != 2 {
+		t.Fatalf("Files changed and All changes should each offer the displayed path for copying, got %d", got)
+	}
+}
+
 func gitTest(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)

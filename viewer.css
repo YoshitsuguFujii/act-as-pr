@@ -110,6 +110,11 @@ nav[id$="-nav"] { max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: 
 .file-card:not([open]) .file-toggle { transform: rotate(-90deg); }
 .file-icon { color: var(--muted); font-size: 15px; }
 .file-path { overflow-wrap: anywhere; font: 600 13px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.copy-path { display: inline-flex; align-items: center; gap: 5px; flex: none; min-width: 26px; min-height: 26px; padding: 3px 5px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
+.copy-path:hover { border-color: var(--border); background: var(--surface); color: var(--text); }
+.copy-path:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.copy-symbol { font-size: 16px; line-height: 1; }
+.copy-feedback { font-size: 11px; font-weight: 600; white-space: nowrap; }
 .old-path { color: var(--muted); overflow-wrap: anywhere; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
 .file-status { flex: none; padding: 1px 6px; border: 1px solid var(--border); border-radius: 10px; color: var(--muted); font-size: 10px; line-height: 15px; text-transform: uppercase; }
 .file-status.added { color: var(--add-text); border-color: var(--add-text); }
