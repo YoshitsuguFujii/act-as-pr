@@ -191,6 +191,38 @@ func TestRenderIdentifiesBaseAndCompareAndGroupsChangedPaths(t *testing.T) {
 	}
 }
 
+func TestRenderOffersViewedControlsAndProgressInEveryDiff(t *testing.T) {
+	dir := repo(t)
+	put(t, dir, "tracked.txt", "base\n")
+	commit(t, dir, "base")
+	gitTest(t, dir, "checkout", "-qb", "feature")
+	put(t, dir, "committed.txt", "review me\n")
+	commit(t, dir, "feature")
+	put(t, dir, "tracked.txt", "working change\n")
+
+	app, err := inspectApp(dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := renderApp(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(page)
+	if got := strings.Count(html, `aria-label="Mark committed.txt as viewed"`); got != 3 {
+		t.Errorf("committed file should be reviewable in its three diff views, got %d", got)
+	}
+	if got := strings.Count(html, `aria-label="Mark tracked.txt as viewed"`); got != 2 {
+		t.Errorf("working file should be reviewable in its two diff views, got %d", got)
+	}
+	if got := strings.Count(html, `0 of 1 viewed`); got != 3 {
+		t.Errorf("single-file diff progress missing: got %d", got)
+	}
+	if !strings.Contains(html, `0 of 2 viewed`) {
+		t.Error("all-changes progress missing")
+	}
+}
+
 func TestInspectShowsFileKindsAndUnusualPaths(t *testing.T) {
 	dir := repo(t)
 	put(t, dir, "edit me.txt", "before\n")

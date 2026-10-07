@@ -102,6 +102,34 @@ document.querySelectorAll('.copy-path').forEach(button => {
     }, 2000);
   });
 });
+
+function setViewed(card, value) {
+  const button = card.querySelector('.viewed-toggle');
+  const path = card.querySelector('.file-path').textContent;
+  card.dataset.viewed = String(value);
+  button.setAttribute('aria-pressed', String(value));
+  button.setAttribute('aria-label', `${value ? 'Unmark' : 'Mark'} ${path} as viewed`);
+  const link = document.querySelector(`.nav-file[href="#${card.id}"]`);
+  if (link) link.classList.toggle('viewed', value);
+}
+
+function updateViewedProgress(workspace) {
+  const viewed = workspace.querySelectorAll('.file-card[data-viewed="true"]').length;
+  const total = workspace.querySelectorAll('.file-card').length;
+  workspace.previousElementSibling.querySelector('.viewed-progress').textContent = `${viewed} of ${total} viewed`;
+}
+
+document.querySelectorAll('.file-card').forEach(card => {
+  card.querySelector('.viewed-toggle').addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const value = card.dataset.viewed !== 'true';
+    setViewed(card, value);
+    card.open = !value;
+    updateViewedProgress(card.closest('.workspace'));
+    saveUIState();
+  });
+});
 window.addEventListener('popstate', event => {
   if (!event.state?.actAsPR) return;
   selectTab(event.state.tab);
@@ -157,8 +185,9 @@ document.querySelectorAll('nav[id$="-nav"] a').forEach(link => {
 function saveUIState() {
   try {
     const collapsed = [...document.querySelectorAll('.file-card:not([open])')].map(card => card.dataset.fileKey);
+    const viewed = [...document.querySelectorAll('.file-card[data-viewed="true"]')].map(card => [card.dataset.fileKey, card.dataset.reviewFingerprint]);
     const navScroll = [...document.querySelectorAll('nav[id$="-nav"]')].map(nav => [nav.id, nav.scrollTop]);
-    sessionStorage.setItem(stateKey, JSON.stringify({ tab: selectedTab, commit: selectedCommit, mode: root.dataset.mode, collapsed, navScroll, x: scrollX, y: scrollY }));
+    sessionStorage.setItem(stateKey, JSON.stringify({ tab: selectedTab, commit: selectedCommit, mode: root.dataset.mode, collapsed, viewed, navScroll, x: scrollX, y: scrollY }));
   } catch (_) {
     // Browser privacy settings may disable session storage.
   }
@@ -172,7 +201,14 @@ function restoreUIState() {
     showCommit(saved.commit);
     setMode(saved.mode);
     const collapsed = new Set(saved.collapsed || []);
-    document.querySelectorAll('.file-card').forEach(card => { card.open = !collapsed.has(card.dataset.fileKey); });
+    const viewed = new Map(saved.viewed || []);
+    document.querySelectorAll('.file-card').forEach(card => {
+      const fingerprint = viewed.get(card.dataset.fileKey);
+      const unchanged = fingerprint === card.dataset.reviewFingerprint;
+      setViewed(card, Boolean(fingerprint && unchanged));
+      card.open = !collapsed.has(card.dataset.fileKey) || Boolean(fingerprint && !unchanged);
+    });
+    document.querySelectorAll('.workspace').forEach(updateViewedProgress);
     for (const [id, top] of saved.navScroll || []) {
       const nav = document.getElementById(id);
       if (nav) nav.scrollTop = top;
@@ -183,10 +219,10 @@ function restoreUIState() {
   }
 }
 
+restoreUIState();
+window.addEventListener('beforeunload', saveUIState);
 if (root.dataset.watchEvents) {
   history.scrollRestoration = 'manual';
-  restoreUIState();
-  window.addEventListener('beforeunload', saveUIState);
   const events = new EventSource(root.dataset.watchEvents);
   events.addEventListener('version', event => {
     if (event.data !== root.dataset.version) {

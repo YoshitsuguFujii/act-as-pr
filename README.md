@@ -12,6 +12,8 @@ Requires Go 1.23 or newer and Git. Install without cloning the repository:
 go install github.com/YoshitsuguFujii/act-as-pr@latest
 ```
 
+To install this release at a fixed version, use `go install github.com/YoshitsuguFujii/act-as-pr@v0.3.0`.
+
 Ensure `$(go env GOPATH)/bin` (or your `GOBIN`) is on `PATH`. From a source checkout, you can also run `go install .` or build a standalone binary:
 
 ```sh
@@ -50,6 +52,8 @@ In **All changes** and **Uncommitted changes**, file headers label staged, unsta
 ![All changes preview with staged and unstaged labels](docs/images/all-changes.png)
 
 Each normal commit detail compares its first parent to the commit; merge commits also use their first parent. A root commit compares against the empty tree. **Uncommitted changes** compares `HEAD` with the current working state, including staged, unstaged, and untracked files. Ignored files are excluded.
+
+Each diff has a **Viewed** button on every file. Marking a file viewed collapses it, updates the viewed count, and marks it in file navigation; press the button again to reopen it. Review progress is separate for each comparison. In watch mode, it survives automatic reloads for unchanged files and clears when that file's diff changes. Review state stays in the browser session and is never written to Git or sent to GitHub. Snapshot previews can restore it when the same HTML URL is reloaded and browser session storage is available.
 
 Snapshot mode writes one self-contained HTML file under the OS temporary directory and opens it with the macOS default browser (`xdg-open` on Linux). It uses `file://`, makes no network requests, starts no server, and exits immediately. The file contains the data for all three views and every commit detail. The page supports Unified and Split diff views, file navigation, folding, line numbers, and the system light/dark theme.
 

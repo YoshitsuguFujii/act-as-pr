@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 )
@@ -55,7 +56,7 @@ func renderPage(app App, eventsPath, version string) ([]byte, error) {
 		csp += "; connect-src 'self'"
 	}
 	data := pageData{App: app, CSS: template.CSS(css), JS: template.JS(js), CSP: csp, WatchEvents: eventsPath, Version: version}
-	tmpl, err := template.New("viewer").Parse(string(htmlBytes))
+	tmpl, err := template.New("viewer").Funcs(template.FuncMap{"reviewFingerprint": reviewFingerprint}).Parse(string(htmlBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -64,4 +65,14 @@ func renderPage(app App, eventsPath, version string) ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func reviewFingerprint(file File) (string, error) {
+	file.ID = ""
+	data, err := json.Marshal(file)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return base64.RawURLEncoding.EncodeToString(sum[:16]), nil
 }
