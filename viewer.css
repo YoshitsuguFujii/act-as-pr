@@ -104,9 +104,9 @@ nav[id$="-nav"] { max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: 
 .nav-working.unstaged { color: var(--delete-text); }
 .nav-working.untracked { color: var(--muted); }
 .file-list { min-width: 0; }
-.file-card { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); scroll-margin-top: 14px; }
+.file-card { margin-bottom: 16px; overflow: clip; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); scroll-margin-top: 14px; }
 .file-card:target { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.file-header { display: flex; align-items: center; gap: 9px; min-height: 41px; padding: 6px 12px; list-style: none; cursor: pointer; background: var(--subtle); border-bottom: 1px solid var(--border); }
+.file-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 9px; min-height: 41px; padding: 6px 12px; list-style: none; cursor: pointer; background: var(--subtle); border-bottom: 1px solid var(--border); }
 .file-card:not([open]) .file-header { border-bottom: 0; }
 .file-card[data-viewed="true"] .file-header { color: var(--muted); }
 .file-header::-webkit-details-marker { display: none; }
