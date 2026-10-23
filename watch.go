@@ -25,6 +25,7 @@ type WatchServer struct {
 	token    string
 	root     string
 	base     string
+	title    string
 	interval time.Duration
 
 	mu          sync.RWMutex
@@ -36,7 +37,7 @@ type WatchServer struct {
 	closeOnce   sync.Once
 }
 
-func startWatch(dir, base string, interval time.Duration) (*WatchServer, error) {
+func startWatch(dir, base string, interval time.Duration, title string) (*WatchServer, error) {
 	if interval <= 0 {
 		return nil, errors.New("watch interval must be positive")
 	}
@@ -44,6 +45,7 @@ func startWatch(dir, base string, interval time.Duration) (*WatchServer, error) 
 	if err != nil {
 		return nil, err
 	}
+	app.Title = title
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, err
@@ -62,7 +64,7 @@ func startWatch(dir, base string, interval time.Duration) (*WatchServer, error) 
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	w := &WatchServer{listener: listener, token: token, root: app.Root, base: base, interval: interval, page: page, version: version, subscribers: make(map[chan string]struct{}), cancel: cancel, done: make(chan struct{})}
+	w := &WatchServer{listener: listener, token: token, root: app.Root, base: base, title: title, interval: interval, page: page, version: version, subscribers: make(map[chan string]struct{}), cancel: cancel, done: make(chan struct{})}
 	w.server = &http.Server{Handler: http.HandlerFunc(w.serveHTTP), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = w.server.Serve(listener) }()
 	go w.pollLoop(ctx)
@@ -151,6 +153,7 @@ func (w *WatchServer) pollOnce() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	app.Title = w.title
 	version, err := appVersion(app)
 	if err != nil {
 		return false, err
@@ -210,8 +213,8 @@ func (w *WatchServer) Close() {
 	})
 }
 
-func runWatch(dir, base string, out io.Writer) error {
-	w, err := startWatch(dir, base, 750*time.Millisecond)
+func runWatch(dir, base, title string, out io.Writer) error {
+	w, err := startWatch(dir, base, 750*time.Millisecond, title)
 	if err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="{{.CSP}}">
-  <title>{{.Repository}} · Local pull request · act-as-pr</title>
+  <title>{{if .Title}}{{.Title}}{{else}}{{.Repository}} · Local pull request · act-as-pr{{end}}</title>
   <style>{{.CSS}}</style>
 </head>
 <body>

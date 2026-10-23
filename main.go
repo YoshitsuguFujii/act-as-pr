@@ -361,7 +361,7 @@ func openBrowser(path string) error {
 }
 
 func run(args []string, out io.Writer) error {
-	base, watch, err := parseCLI(args)
+	options, err := parseCLI(args)
 	if err != nil {
 		return err
 	}
@@ -369,13 +369,14 @@ func run(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if watch {
-		return runWatch(cwd, base, out)
+	if options.watch {
+		return runWatch(cwd, options.base, options.title, out)
 	}
-	app, err := inspectApp(cwd, base)
+	app, err := inspectApp(cwd, options.base)
 	if err != nil {
 		return err
 	}
+	app.Title = options.title
 	path, err := writeAppPreview(app)
 	if err != nil {
 		return err
@@ -387,24 +388,37 @@ func run(args []string, out io.Writer) error {
 	return nil
 }
 
-func parseCLI(args []string) (string, bool, error) {
-	usage := errors.New("usage: act-as-pr <base> [--watch] (example: act-as-pr main --watch)")
-	var base string
-	var watch bool
-	for _, arg := range args {
+type cliOptions struct {
+	base, title string
+	watch       bool
+}
+
+func parseCLI(args []string) (cliOptions, error) {
+	usage := errors.New("usage: act-as-pr <base> [--watch] [--title <title>]")
+	var options cliOptions
+	titleSet := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch {
-		case arg == "--watch" && !watch:
-			watch = true
-		case arg == "" || strings.HasPrefix(arg, "-") || base != "":
-			return "", false, usage
+		case arg == "--watch" && !options.watch:
+			options.watch = true
+		case arg == "--title" && !titleSet:
+			i++
+			if i >= len(args) || args[i] == "" {
+				return cliOptions{}, usage
+			}
+			options.title = args[i]
+			titleSet = true
+		case arg == "" || strings.HasPrefix(arg, "-") || options.base != "":
+			return cliOptions{}, usage
 		default:
-			base = arg
+			options.base = arg
 		}
 	}
-	if base == "" {
-		return "", false, usage
+	if options.base == "" {
+		return cliOptions{}, usage
 	}
-	return base, watch, nil
+	return options, nil
 }
 
 func main() {

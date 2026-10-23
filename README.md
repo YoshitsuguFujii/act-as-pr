@@ -12,7 +12,7 @@ Requires Go 1.23 or newer and Git. Install without cloning the repository:
 go install github.com/YoshitsuguFujii/act-as-pr@latest
 ```
 
-To install this release at a fixed version, use `go install github.com/YoshitsuguFujii/act-as-pr@v0.4.0`.
+To install this release at a fixed version, use `go install github.com/YoshitsuguFujii/act-as-pr@v0.5.0`.
 
 Ensure `$(go env GOPATH)/bin` (or your `GOBIN`) is on `PATH`. From a source checkout, you can also run `go install .` or build a standalone binary:
 
@@ -38,6 +38,13 @@ act-as-pr --watch main
 ```
 
 This starts a local server, opens the preview, and runs until Ctrl-C. The page updates automatically as files are edited, staged, or committed.
+
+To name the browser tab, pass `--title` in either mode. Without it, the tab keeps the default repository-based title:
+
+```sh
+act-as-pr main --title "My review"
+act-as-pr main --watch --title "My review"
+```
 
 The base argument is required. Both modes offer three views:
 

@@ -24,6 +24,7 @@ type Commit struct {
 
 type App struct {
 	Repository, Root, Base, Head, MergeBase string
+	Title                                   string
 	FilesChanged                            View
 	AllChanges                              View
 	Uncommitted                             *View

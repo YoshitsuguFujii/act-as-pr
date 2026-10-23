@@ -17,7 +17,7 @@ func TestWatchServerUsesLoopbackEphemeralPortAndSessionToken(t *testing.T) {
 	dir := repo(t)
 	put(t, dir, "base.txt", "base\n")
 	commit(t, dir, "base")
-	server, err := startWatch(dir, "main", time.Hour)
+	server, err := startWatch(dir, "main", time.Hour, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,6 +65,35 @@ func TestWatchServerUsesLoopbackEphemeralPortAndSessionToken(t *testing.T) {
 	}
 }
 
+func TestWatchPageKeepsSpecifiedHTMLTitleAfterRepositoryUpdate(t *testing.T) {
+	dir := repo(t)
+	put(t, dir, "base.txt", "base\n")
+	commit(t, dir, "base")
+	server, err := startWatch(dir, "main", time.Hour, "Review <A> & B")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { server.Close() })
+	checkTitle := func() {
+		t.Helper()
+		response, err := http.Get(server.URL())
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, err := io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil || !strings.Contains(string(page), "<title>Review &lt;A&gt; &amp; B</title>") {
+			t.Fatalf("watch page lost specified title: %v", err)
+		}
+	}
+	checkTitle()
+	put(t, dir, "base.txt", "updated\n")
+	if changed, err := server.pollOnce(); err != nil || !changed {
+		t.Fatalf("repository update not reflected: changed=%t err=%v", changed, err)
+	}
+	checkTitle()
+}
+
 func TestWatchNotifiesRepeatedEditsAndCommitWithoutPageRestart(t *testing.T) {
 	dir := repo(t)
 	put(t, dir, "tracked.txt", "base\n")
@@ -73,7 +102,7 @@ func TestWatchNotifiesRepeatedEditsAndCommitWithoutPageRestart(t *testing.T) {
 	put(t, dir, "committed.txt", "first commit\n")
 	commit(t, dir, "first")
 	put(t, dir, "tracked.txt", "first edit\n")
-	server, err := startWatch(dir, "main", time.Hour)
+	server, err := startWatch(dir, "main", time.Hour, "")
 	if err != nil {
 		t.Fatal(err)
 	}

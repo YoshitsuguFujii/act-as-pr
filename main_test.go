@@ -30,19 +30,68 @@ func TestRunExplainsRequiredBase(t *testing.T) {
 
 func TestCLIRequiresBaseAndAcceptsBothWatchArgumentOrders(t *testing.T) {
 	for _, args := range [][]string{{"main", "--watch"}, {"--watch", "main"}} {
-		base, watch, err := parseCLI(args)
-		if err != nil || base != "main" || !watch {
-			t.Fatalf("watch arguments %q: base=%q watch=%t err=%v", args, base, watch, err)
+		options, err := parseCLI(args)
+		if err != nil || options.base != "main" || !options.watch || options.title != "" {
+			t.Fatalf("watch arguments %q: options=%+v err=%v", args, options, err)
 		}
 	}
-	base, watch, err := parseCLI([]string{"HEAD~3"})
-	if err != nil || base != "HEAD~3" || watch {
-		t.Fatalf("snapshot arguments: base=%q watch=%t err=%v", base, watch, err)
+	options, err := parseCLI([]string{"HEAD~3"})
+	if err != nil || options.base != "HEAD~3" || options.watch || options.title != "" {
+		t.Fatalf("snapshot arguments: options=%+v err=%v", options, err)
 	}
 	for _, args := range [][]string{nil, {"main", "unexpected"}, {"--watch"}, {"main", "--unknown"}} {
-		if _, _, err := parseCLI(args); err == nil {
+		if _, err := parseCLI(args); err == nil {
 			t.Errorf("invalid arguments %q accepted", args)
 		}
+	}
+}
+
+func TestCLIUsesSpecifiedHTMLTitleInEitherArgumentOrder(t *testing.T) {
+	for _, args := range [][]string{{"main", "--title", "Review A"}, {"--title", "Review A", "--watch", "main"}} {
+		options, err := parseCLI(args)
+		if err != nil || options.base != "main" || options.title != "Review A" {
+			t.Fatalf("title arguments %q: options=%+v err=%v", args, options, err)
+		}
+	}
+	for _, args := range [][]string{{"main", "--title"}, {"main", "--title", ""}, {"main", "--title", "A", "--title", "B"}} {
+		if _, err := parseCLI(args); err == nil {
+			t.Errorf("invalid title arguments %q accepted", args)
+		}
+	}
+}
+
+func TestCLIAcceptsTitlesBeginningWithDoubleHyphen(t *testing.T) {
+	for _, test := range []struct {
+		args  []string
+		title string
+		watch bool
+	}{
+		{[]string{"main", "--title", "--urgent"}, "--urgent", false},
+		{[]string{"--title", "--watch", "main", "--watch"}, "--watch", true},
+	} {
+		options, err := parseCLI(test.args)
+		if err != nil || options.base != "main" || options.title != test.title || options.watch != test.watch {
+			t.Errorf("title arguments %q: options=%+v err=%v", test.args, options, err)
+		}
+	}
+}
+
+func TestPreviewUsesSpecifiedHTMLTitleAndPreservesDefault(t *testing.T) {
+	app := App{Repository: "sample"}
+	defaultPage, err := renderApp(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(defaultPage), "<title>sample · Local pull request · act-as-pr</title>") {
+		t.Fatal("default HTML title changed")
+	}
+	app.Title = "Review <A> & B"
+	customPage, err := renderApp(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(customPage), "<title>Review &lt;A&gt; &amp; B</title>") {
+		t.Fatal("specified title should be escaped and replace the default")
 	}
 }
 
