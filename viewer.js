@@ -156,19 +156,45 @@ document.querySelectorAll('.file-card').forEach(card => {
   card.querySelectorAll('.code-text').forEach(node => {
     const text = node.textContent;
     if (text.length > 4000) return;
+    const changes = [];
+    let offset = 0;
+    node.childNodes.forEach(child => {
+      const end = offset + child.textContent.length;
+      if (child.nodeType === Node.ELEMENT_NODE && child.classList.contains('inline-change')) changes.push([offset, end]);
+      offset = end;
+    });
+    const fragment = document.createDocumentFragment();
+    const appendPart = (start, end, tokenClass) => {
+      while (start < end) {
+        const change = changes.find(([from, to]) => start >= from && start < to);
+        const next = Math.min(end, change ? change[1] : (changes.find(([from]) => from > start)?.[0] ?? end));
+        let part = document.createTextNode(text.slice(start, next));
+        if (change) {
+          const span = document.createElement('span');
+          span.className = 'inline-change';
+          span.append(part);
+          part = span;
+        }
+        if (tokenClass) {
+          const span = document.createElement('span');
+          span.className = tokenClass;
+          span.append(part);
+          part = span;
+        }
+        fragment.append(part);
+        start = next;
+      }
+    };
     tokenPattern.lastIndex = 0;
     let match, from = 0;
-    const fragment = document.createDocumentFragment();
     while ((match = tokenPattern.exec(text))) {
-      fragment.append(document.createTextNode(text.slice(from, match.index)));
-      const span = document.createElement('span');
-      span.className = match[0].startsWith('//') || match[0].startsWith('#') ? 'token-comment' : match[0].startsWith('"') || match[0].startsWith("'") ? 'token-string' : 'token-keyword';
-      span.textContent = match[0];
-      fragment.append(span);
+      appendPart(from, match.index, '');
+      const tokenClass = match[0].startsWith('//') || match[0].startsWith('#') ? 'token-comment' : match[0].startsWith('"') || match[0].startsWith("'") ? 'token-string' : 'token-keyword';
+      appendPart(match.index, tokenPattern.lastIndex, tokenClass);
       from = tokenPattern.lastIndex;
     }
     if (from) {
-      fragment.append(document.createTextNode(text.slice(from)));
+      appendPart(from, text.length, '');
       node.replaceChildren(fragment);
     }
   });

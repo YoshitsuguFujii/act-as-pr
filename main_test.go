@@ -381,6 +381,39 @@ func TestRenderEscapesRepositoryContentAndIsSelfContained(t *testing.T) {
 	}
 }
 
+func TestPreviewHighlightsChangedCharactersInUnifiedAndSplitViews(t *testing.T) {
+	dir := repo(t)
+	put(t, dir, "sample.txt", "abcXdefYghi\n<b>old</b>\nabcde\n")
+	commit(t, dir, "base")
+	gitTest(t, dir, "checkout", "-qb", "feature")
+	put(t, dir, "sample.txt", "abcQdefZghi\n<b>new</b>\nabccd\n")
+	commit(t, dir, "change characters")
+	view, err := inspect(dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := render(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(page)
+	for _, want := range []string{
+		`abc<span class="inline-change">X</span>def<span class="inline-change">Y</span>ghi`,
+		`abc<span class="inline-change">Q</span>def<span class="inline-change">Z</span>ghi`,
+		`&lt;b&gt;<span class="inline-change">old</span>&lt;/b&gt;`,
+		`&lt;b&gt;<span class="inline-change">new</span>&lt;/b&gt;`,
+		`abcd<span class="inline-change">e</span>`,
+		`abc<span class="inline-change">c</span>d`,
+	} {
+		if got := strings.Count(html, want); got != 4 {
+			t.Errorf("%q should appear in Unified and Split for both tabs: got %d", want, got)
+		}
+	}
+	if strings.Contains(html, "<b>old</b>") || strings.Contains(html, "<b>new</b>") {
+		t.Fatal("diff content was interpreted as HTML")
+	}
+}
+
 func TestInspectRejectsInvalidInputs(t *testing.T) {
 	if _, err := inspect(t.TempDir(), "main"); err == nil {
 		t.Fatal("non-repository accepted")

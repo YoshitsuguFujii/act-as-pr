@@ -11,6 +11,60 @@ import (
 	"time"
 )
 
+func TestInlineChangesRemainVisibleWithSourceHighlighting(t *testing.T) {
+	if os.Getenv("ACT_AS_PR_BROWSER_TEST") != "1" {
+		t.Skip("browser test is opt in")
+	}
+	if _, err := exec.LookPath("browser-use"); err != nil {
+		t.Skip("browser-use is unavailable")
+	}
+	file := File{Path: "sample.go", Status: "modified"}
+	parsePatch(&file, "@@ -1,2 +1,2 @@\n-const message = \"old\"\n-abcde\n+const message = \"new\"\n+abccd\n")
+	file.Split = splitRows(file.Hunks)
+	view := View{Repository: "example", Files: []File{file}}
+	page, err := render(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "preview.html")
+	if err := os.WriteFile(path, page, 0600); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"--session", "act-as-pr-inline-test"}
+	runBrowser := func(command, value string) string {
+		t.Helper()
+		output, err := exec.Command("browser-use", append(args, command, value)...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("browser-use %s: %v: %s", command, err, output)
+		}
+		return strings.TrimSpace(string(output))
+	}
+	defer exec.Command("browser-use", append(args, "close")...).Run()
+	runBrowser("open", (&url.URL{Scheme: "file", Path: path}).String())
+	for _, mode := range []string{"unified", "split"} {
+		if mode == "split" {
+			runBrowser("eval", `document.querySelector('[data-set-mode="split"]').click()`)
+		}
+		result := runBrowser("eval", fmt.Sprintf(`(() => {
+			const view = document.querySelector('[data-view="files"] .%s-view');
+			const changed = [...view.querySelectorAll('.inline-change')].map(el => el.textContent);
+			const syntax = view.querySelector('.token-keyword');
+			const strings = [...view.querySelectorAll('.token-string')].map(el => el.textContent);
+			return JSON.stringify({changed, syntax: syntax && syntax.textContent, stringColors: strings.includes('old') && strings.includes('new')});
+		})()`, mode))
+		if !strings.Contains(result, `old`) || !strings.Contains(result, `new`) || !strings.Contains(result, `e`) || !strings.Contains(result, `c`) || !strings.Contains(result, `const`) || !strings.Contains(result, `"stringColors":true`) {
+			t.Errorf("%s should keep character and source highlighting: %s", mode, result)
+		}
+	}
+	if dir := os.Getenv("ACT_AS_PR_SCREENSHOT_DIR"); dir != "" {
+		runBrowser("eval", `document.body.style.zoom = '2.25'`)
+		path := filepath.Join(dir, "inline-diff-split.png")
+		if output, err := exec.Command("browser-use", append(args, "screenshot", path)...).CombinedOutput(); err != nil {
+			t.Errorf("save inline diff screenshot: %v: %s", err, output)
+		}
+	}
+}
+
 // Run with ACT_AS_PR_BROWSER_TEST=1 go test -run TestFileHeadingFollowsVisibleDiff.
 func TestFileHeadingFollowsVisibleDiff(t *testing.T) {
 	if os.Getenv("ACT_AS_PR_BROWSER_TEST") != "1" {

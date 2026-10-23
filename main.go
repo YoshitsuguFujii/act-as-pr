@@ -22,6 +22,11 @@ var assets embed.FS
 type Line struct {
 	Kind, Text string
 	Old, New   int
+	Segments   []Segment
+}
+type Segment struct {
+	Text    string
+	Changed bool
 }
 type Hunk struct {
 	Header string
@@ -259,6 +264,90 @@ func parsePatch(f *File, patch string) {
 		}
 		h.Lines = append(h.Lines, l)
 	}
+	markInlineChanges(f.Hunks)
+}
+
+func markInlineChanges(hunks []Hunk) {
+	for hi := range hunks {
+		lines := hunks[hi].Lines
+		for i := 0; i < len(lines); {
+			if lines[i].Kind == "context" {
+				i++
+				continue
+			}
+			var deleted, added []*Line
+			for i < len(lines) && lines[i].Kind != "context" {
+				if lines[i].Kind == "delete" {
+					deleted = append(deleted, &lines[i])
+				} else {
+					added = append(added, &lines[i])
+				}
+				i++
+			}
+			for j := 0; j < len(deleted) && j < len(added); j++ {
+				deleted[j].Segments, added[j].Segments = changedSegments(deleted[j].Text, added[j].Text)
+			}
+		}
+	}
+}
+
+func changedSegments(before, after string) ([]Segment, []Segment) {
+	a, b := []rune(before), []rune(after)
+	oldSame, newSame := make([]bool, len(a)), make([]bool, len(b))
+	start := 0
+	for start < len(a) && start < len(b) && a[start] == b[start] {
+		oldSame[start], newSame[start] = true, true
+		start++
+	}
+	oldEnd, newEnd := len(a), len(b)
+	for oldEnd > start && newEnd > start && a[oldEnd-1] == b[newEnd-1] {
+		oldEnd--
+		newEnd--
+		oldSame[oldEnd], newSame[newEnd] = true, true
+	}
+	oldMiddle, newMiddle := a[start:oldEnd], b[start:newEnd]
+	if len(oldMiddle) > 0 && len(newMiddle) > 0 && len(oldMiddle)*len(newMiddle) <= 10000 {
+		width := len(newMiddle) + 1
+		scores := make([]uint16, (len(oldMiddle)+1)*width)
+		for i := len(oldMiddle) - 1; i >= 0; i-- {
+			for j := len(newMiddle) - 1; j >= 0; j-- {
+				at := i*width + j
+				if oldMiddle[i] == newMiddle[j] {
+					scores[at] = scores[(i+1)*width+j+1] + 1
+				} else if scores[(i+1)*width+j] >= scores[i*width+j+1] {
+					scores[at] = scores[(i+1)*width+j]
+				} else {
+					scores[at] = scores[i*width+j+1]
+				}
+			}
+		}
+		for i, j := 0, 0; i < len(oldMiddle) && j < len(newMiddle); {
+			if oldMiddle[i] == newMiddle[j] {
+				oldSame[start+i], newSame[start+j] = true, true
+				i++
+				j++
+			} else if scores[(i+1)*width+j] >= scores[i*width+j+1] {
+				i++
+			} else {
+				j++
+			}
+		}
+	}
+	return groupSegments(a, oldSame), groupSegments(b, newSame)
+}
+
+func groupSegments(chars []rune, same []bool) []Segment {
+	var segments []Segment
+	for i := 0; i < len(chars); {
+		changed := !same[i]
+		j := i + 1
+		for j < len(chars) && same[j] != changed {
+			j++
+		}
+		segments = append(segments, Segment{Text: string(chars[i:j]), Changed: changed})
+		i = j
+	}
+	return segments
 }
 
 func splitRows(hunks []Hunk) []SplitRow {

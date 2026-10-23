@@ -12,7 +12,7 @@ Requires Go 1.23 or newer and Git. Install without cloning the repository:
 go install github.com/YoshitsuguFujii/act-as-pr@latest
 ```
 
-To install this release at a fixed version, use `go install github.com/YoshitsuguFujii/act-as-pr@v0.5.0`.
+To install this release at a fixed version, use `go install github.com/YoshitsuguFujii/act-as-pr@v0.6.0`.
 
 Ensure `$(go env GOPATH)/bin` (or your `GOBIN`) is on `PATH`. From a source checkout, you can also run `go install .` or build a standalone binary:
 
@@ -64,7 +64,7 @@ Each diff has a **Viewed** button on every file. Marking a file viewed collapses
 
 While scrolling through a long diff, the current file header stays at the top of the page with its path, copy button, and Viewed control. The header changes when you reach the next file.
 
-Snapshot mode writes one self-contained HTML file under the OS temporary directory and opens it with the macOS default browser (`xdg-open` on Linux). It uses `file://`, makes no network requests, starts no server, and exits immediately. The file contains the data for all three views and every commit detail. The page supports Unified and Split diff views, file navigation, folding, line numbers, and the system light/dark theme.
+Snapshot mode writes one self-contained HTML file under the OS temporary directory and opens it with the macOS default browser (`xdg-open` on Linux). It uses `file://`, makes no network requests, starts no server, and exits immediately. The file contains the data for all three views and every commit detail. The page supports Unified and Split diff views, file navigation, folding, line numbers, character-level highlights within paired changed lines, and the system light/dark theme.
 
 Watch mode serves the same viewer on `127.0.0.1` at an OS-assigned port. A read-only poll of the repository runs every 750 ms. When the view data changes, a Server-Sent Event tells the browser to reload the page. The viewer restores its selected tab, selected commit where still available, diff mode, folded files, navigation scroll, and page scroll. A brief reload may be visible for large previews.
 
